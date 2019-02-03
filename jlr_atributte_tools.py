@@ -3,41 +3,71 @@
 
 import pymel.core as pm
 import maya.mel as mel
-from pprint import pprint
 
-# TODO: falta dar soporte a los atributos de tipo string
-
+# TODO: Move UP/DOWN compounds attributes.
 
 def copy_attr(item_source, item_target, attr_name, move=False):
-    attr_data = get_attr_info(item_source, attr_name)
+    if not item_source.hasAttr(attr_name):
+        pm.warning('The attribute{} does not exist in {}'.format(attr_name, item_source))
+        return None
+
+    # Get source attribute info
+    source_attr = item_source.attr(attr_name)
+    attr_data = get_attr_info(source_attr)
     if not attr_data:
-        return
+        return None
 
-    new_attr = create_attr(item_target, attr_data)
-    if new_attr:
+    source_value = source_attr.get()
+    source_is_locked = source_attr.isLocked()
+    source_is_compound = source_attr.isCompound()
+    source_connections = get_attr_connections(source_attr)
 
-        if move:
-            if attr_data['attributeType'] == 'double3':
-                pm.warning('Vector-type attributes can not be moved: {}'.format(attr_name))
-                pm.warning('Connections to this attribute will be disconnected.')
-                pm.disconnectAttr(item_source.attr(attr_name))
+    source_child_info = dict()
+    source_child_connections = dict()
+    if source_is_compound:
+        source_child_info = dict()
+        source_child_connections = dict()
+        for child in source_attr.getChildren():
+            source_child_info[child.attrName()] = get_attr_info(child)
+            source_child_connections[child.attrName()] = get_attr_connections(child)
 
-                for axis in attr_data['axes'].values():
-                    pm.disconnectAttr(item_source.attr(axis['longName']))
+    if move:
+        if source_is_locked: source_attr.unlock()
+        pm.deleteAttr(source_attr)
 
-            else:
-                pm.deleteAttr(item_source, at=attr_name)
+    # Create the attribute
+    create_attr(item_target, attr_data)
 
-        connect_attr(new_attr, attr_data['in'], attr_data['out'])
-        if new_attr.type() == 'double3':
-            for axis in attr_data['axes'].values():
-                sub_attr = item_target.attr(axis['longName'])
-                connect_attr(sub_attr, axis['in'], axis['out'])
+    # If attribute is a Compound, the children attributes are created
+    if source_is_compound:
+        for child_key in sorted(source_child_info.keys()):
+            create_attr(item_target, source_child_info[child_key])
+
+    new_attr = item_target.attr(attr_name)
+
+    # Copy the value
+    new_attr.set(source_value)
+
+    # Copy the lock status
+    if source_is_locked:
+        new_attr.lock()
+    else:
+        new_attr.unlock()
+
+    # Connect the attributes
+    connect_attr(new_attr, **source_connections)
+
+    # If attribute is a Compound, the children attributes are connected
+    if source_is_compound:
+        for attr_child, child_key in zip(new_attr.getChildren(), sorted(source_child_connections.keys())):
+            connect_attr(attr_child, **source_child_connections[child_key])
+
+    return new_attr
 
 
 def create_attr(item, attr_data):
     attr_name = attr_data['longName']
-    del attr_data['longName']
+
     # Check if the attribute exists within the item.
     # If it exists, a number will be added to the end of the name.
     cont_name = 0
@@ -54,85 +84,24 @@ def create_attr(item, attr_data):
         pm.warning('An attribute {} will be created inside {}'.format(attr_name, item))
 
     # Creating the attribute
-    pprint(attr_data)
-    item.addAttr(attr_name, **attr_data)
-    new_attr = item.attr(attr_name)
-    return new_attr
+    pm.addAttr(item, **attr_data)
 
 
-def old_create_attr(item, attr_data):
-    attr_name = attr_data['longName']
-
-    cont_name = 0
-    tmp_name = attr_name
-    while item.hasAttr(tmp_name):
-        cont_name += 1
-        tmp_name = attr_name + str(cont_name).zfill(2)
-
-    if cont_name:
-        pm.warning('There is already an attribute {} inside {}'.format(attr_name, item))
-        attr_name = attr_name + str(cont_name).zfill(2)
-        attr_data['niceName'] = attr_data['niceName'] + str(cont_name).zfill(2)
-        attr_data['shortName'] = attr_data['shortName'] + str(cont_name).zfill(2)
-        pm.warning('An attribute {} will be created inside {}'.format(attr_name, item))
-
-    if attr_data['attributeType'] in ['long', 'bool', 'double']:
-        item.addAttr(attr_name, nn=attr_data['niceName'], sn=attr_data['shortName'],
-                     hidden=attr_data['hidden'], keyable=attr_data['keyable'], at=attr_data['attributeType'],
-                     dv=attr_data['defaultValue'])
-
-    elif attr_data['attributeType'] == 'enum':
-        enum_data = ':'.join(attr_data['enumName'].keys())
-        item.addAttr(attr_name, nn=attr_data['niceName'], sn=attr_data['shortName'],
-                     hidden=attr_data['hidden'], keyable=attr_data['keyable'], at=attr_data['attributeType'], en=enum_data)
-
-    elif attr_data['attributeType'] == 'double3':
-        item.addAttr(attr_name, at=attr_data['attributeType'])
-        for axis in 'XYZ':
-            axis = attr_data['axes'][axis]
-            item.addAttr(axis['longName'], nn=axis['niceName'], sn=attr_data['shortName'],
-                         hidden=axis['hidden'], keyable=axis['keyable'], at=axis['attributeType'], dv=axis['defaultValue'],
-                         parent=axis['parent'])
-
-    new_attr = item.attr(attr_name)
-
-    if new_attr.type() in ['long', 'bool', 'double']:
-        min_value, max_value = attr_data['range']
-        if min_value is not None: new_attr.setMin(min_value)
-        if max_value is not None: new_attr.setMax(max_value)
-
-    if not new_attr.type() in ['double3']:
-        new_attr.set(attr_data['value'])
-    else:
-        for axis in 'XYZ':
-            sub_attr = item.attr(attr_data['axes'][axis]['longName'])
-            sub_attr.set(attr_data['axes'][axis]['value'])
-
-    if attr_data['locked']:
-        new_attr.lock()
-    else:
-        new_attr.unlock()
-
-    return new_attr
-
-
-def connect_attr(attr, attr_inputs=None, attr_outputs=None):
-
-    if attr_inputs:
-        for attr_input in attr_inputs:
-            if attr.inputs():
-                make_shared_connection(attr_input, attr)
+def connect_attr(attribute, inputs=None, outputs=None):
+    if inputs:
+        for attr_input in inputs:
+            if attribute.inputs():
+                make_shared_connection(attr_input, attribute)
             else:
-                attr_input.connect(attr)
+                attr_input.connect(attribute)
 
-    if attr_outputs:
-        if attr.type() in ['long', 'bool', 'double', 'enum', 'double3']:
-            # print attr, attr_inputs, attr_outputs
-            for attr_output in attr_outputs:
+    if outputs:
+        if attribute.type() in ['long', 'bool', 'double', 'enum', 'double3']:
+            for attr_output in outputs:
                 if attr_output.inputs(p=1):
-                    make_shared_connection(attr, attr_output)
+                    make_shared_connection(attribute, attr_output)
                 else:
-                    attr.connect(attr_output)
+                    attribute.connect(attr_output)
 
 
 def make_shared_connection(attr_source, target_attr):
@@ -154,51 +123,106 @@ def get_selected_attributes():
     return attrs
 
 
-def get_attr_info(item_source, attr_name):
-    if not item_source.hasAttr(attr_name):
-        pm.warning('The attribute{} does not exist in {}'.format(attr_name, item_source))
-        return None
-
-    attr = item_source.attr(attr_name)
-    attributeType = str(attr.type())
+def get_attr_info(attribute):
+    attribute_type = str(attribute.type())
 
     d_data = dict()
-    d_data['longName'] = str(pm.attributeName(attr, l=True))
-    d_data['niceName'] = str(pm.attributeName(attr, n=True))
-    d_data['shortName'] = str(pm.attributeName(attr, s=True))
-    d_data['hidden'] = attr.isHidden()
-    d_data['keyable'] = attr.isKeyable()
-    d_data['attributeType'] = attributeType
+    d_data['longName'] = str(pm.attributeName(attribute, long=True))
+    d_data['niceName'] = str(pm.attributeName(attribute, nice=True))
+    d_data['shortName'] = str(pm.attributeName(attribute, short=True))
+    d_data['hidden'] = attribute.isHidden()
+    d_data['keyable'] = attribute.isKeyable()
 
-    # d_data['locked'] = attr.isLocked()
-    # d_data['maxValue'] = attr.getMax()
-    # d_data['minValue'] = attr.getMin()
-    # d_data['defaultValue'] = attr.get(default=1)
-    # d_data['enumName'] = attr.getEnums() if attributeType == 'enum' else None
-    # d_data['in'] = attr.inputs(p=1)
-    # d_data['out'] = attr.outputs(p=1)
-    # d_data['value'] = attr.get()
-    # d_data['parent'] = attr.parent().attrName() if attr.parent() else None
-    # d_data['axes'] = dict()
+    if attribute_type in ['string']:
+        d_data['dataType'] = attribute_type
+    else:
+        d_data['attributeType'] = attribute_type
 
-    # if attributeType == 'double3':
-    #     d_data['axes'] = {axis: get_attr_info(item_source, attr_name + axis) for axis in 'XYZ'}
+    if attribute_type in ['long', 'double', 'bool']:
+        d_data['defaultValue'] = attribute.get(default=True)
+        if attribute.getMax(): d_data['maxValue'] = attribute.getMax()
+        if attribute.getMin(): d_data['minValue'] = attribute.getMin()
+
+    if attribute_type in ['enum']:
+        d_data['enumName'] = attribute.getEnums()
+
+    if attribute.parent():
+        d_data['parent'] = attribute.parent().attrName()
 
     return d_data
 
 
-mel.eval('file -f -options "v=0;p=17;f=0"  -ignoreVersion  -typ "mayaAscii"'
-         '-o "C:/Users/LD_Juan/Documents/maya/projects/default/scenes/attr_tools.ma";'
-         'addRecentFile("C:/Users/LD_Juan/Documents/maya/projects/default/scenes/attr_tools.ma", "mayaAscii");')
+def get_attr_connections(source_attr):
+    source_inputs = source_attr.inputs(p=True)
+    source_outputs = source_attr.outputs(p=True)
+    return {'inputs': source_inputs, 'outputs': source_outputs}
 
-source = pm.PyNode('obj_attr')
-target = pm.PyNode('target')
-for attr in ['entero', 'flotante', 'check', 'lista', 'vv3']:
-    # print attr
-    copy_attr(source, target, attr, move=True)
 
-source = pm.PyNode('target')
-target = pm.PyNode('locator1')
-for attr in ['entero', 'flotante', 'check', 'lista', 'vv3']:
-    # print attr
-    copy_attr(source, target, attr, move=True)
+def move_up_attribute():
+    selected_attributes = get_selected_attributes()
+
+    if not len(pm.ls(sl=1)) or not selected_attributes:
+        print 'Nothing Selected'
+        return
+
+    selected_items = pm.selected()
+
+    for item in selected_items:
+        for attribute in selected_attributes:
+
+            all_attributes = get_all_user_attributes(item)
+            pos_attr = all_attributes.index(attribute)
+            if pos_attr == 0: continue
+
+            below_attr = all_attributes[pos_attr - 1:]
+            below_attr.remove(attribute)
+
+            copy_attr(item, item, attribute, move=True)
+            for attr in below_attr:
+                copy_attr(item, item, attr, move=True)
+
+
+def move_down_attribute():
+    selected_attributes = get_selected_attributes()
+
+    if not len(pm.ls(sl=1)) or not selected_attributes:
+        print 'Nothing Selected'
+        return
+
+    selected_items = pm.selected()
+
+    for item in selected_items:
+        for attribute in reversed(selected_attributes):
+
+            all_attributes = get_all_user_attributes(item)
+            pos_attr = all_attributes.index(attribute)
+            if pos_attr == len(all_attributes)-1: continue
+
+            below_attr = all_attributes[pos_attr + 2:]
+
+            copy_attr(item, item, attribute, move=True)
+            for attr in below_attr:
+                copy_attr(item, item, attr, move=True)
+
+
+def get_all_user_attributes(item):
+    all_attributes = list()
+    for attr in pm.listAttr(item, ud=True):
+        if not item.attr(attr).parent():
+            all_attributes.append(attr)
+    return all_attributes
+
+
+if __name__ == '__main__':
+    move_up_attribute()
+
+    # mel.eval('file -f -options "v=0;p=17;f=0"  -ignoreVersion  -typ "mayaAscii"'
+    #          '-o "C:/Users/LD_Juan/Documents/maya/projects/default/scenes/attr_tools.ma";'
+    #          'addRecentFile("C:/Users/LD_Juan/Documents/maya/projects/default/scenes/attr_tools.ma", "mayaAscii");')
+    #
+    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'flotante', move=True)
+    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'check', move=True)
+    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'entero', move=True)
+    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'cadena', move=True)
+    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'lista', move=True)
+    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'vv3', move=True)
