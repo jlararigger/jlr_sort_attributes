@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pymel.core as pm
-import maya.mel as mel
 
-# TODO: Move UP/DOWN compounds attributes.
 
 def copy_attr(item_source, item_target, attr_name, move=False):
     if not item_source.hasAttr(attr_name):
@@ -166,9 +164,15 @@ def move_up_attribute():
         return
 
     selected_items = pm.selected()
+    last_parent = None
 
     for item in selected_items:
         for attribute in selected_attributes:
+            if item.attr(attribute).parent():
+                attribute = item.attr(attribute).parent().attrName()
+                if attribute == last_parent:
+                    continue
+                last_parent = attribute
 
             all_attributes = get_all_user_attributes(item)
             pos_attr = all_attributes.index(attribute)
@@ -190,13 +194,20 @@ def move_down_attribute():
         return
 
     selected_items = pm.selected()
+    last_parent = None
 
     for item in selected_items:
         for attribute in reversed(selected_attributes):
 
+            if item.attr(attribute).parent():
+                attribute = item.attr(attribute).parent().attrName()
+                if attribute == last_parent:
+                    continue
+                last_parent = attribute
+
             all_attributes = get_all_user_attributes(item)
             pos_attr = all_attributes.index(attribute)
-            if pos_attr == len(all_attributes)-1: continue
+            if pos_attr == len(all_attributes) - 1: continue
 
             below_attr = all_attributes[pos_attr + 2:]
 
@@ -214,7 +225,7 @@ def get_all_user_attributes(item):
 
 
 if __name__ == '__main__':
-    move_up_attribute()
+    move_down_attribute()
 
     # mel.eval('file -f -options "v=0;p=17;f=0"  -ignoreVersion  -typ "mayaAscii"'
     #          '-o "C:/Users/LD_Juan/Documents/maya/projects/default/scenes/attr_tools.ma";'
