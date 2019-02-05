@@ -2,6 +2,62 @@
 # -*- coding: utf-8 -*-
 
 import pymel.core as pm
+import maya.mel as mel
+
+
+def get_channel_box_menu(label):
+    channel_box_form = pm.uitypes.PyUI(pm.melGlobals['gChannelBoxForm'])
+    name = '|'.join([channel_box_form.name(), channel_box_form.getChildArray()[0]])
+    channel_box_menu_layout = pm.uitypes.PyUI(name)
+    o_menu = None
+
+    for n_menu in channel_box_menu_layout.getMenuArray():
+        fullname = '|'.join([channel_box_menu_layout.name(), n_menu])
+        o_menu = pm.uitypes.PyUI(fullname)
+        if o_menu.getLabel() == label:
+            break
+
+    return o_menu
+
+
+def get_channel_box_popupmenu():
+    channel_box_form = pm.uitypes.PyUI(pm.melGlobals['gChannelBoxForm'])
+    name = '|'.join([channel_box_form.name(), channel_box_form.getChildArray()[0]])
+    channel_box_menu_layout = pm.uitypes.PyUI(name)
+    o_menu = None
+
+    for n_menu in channel_box_menu_layout.getPopupMenuArray():
+        fullname = '|'.join([channel_box_menu_layout.name(), n_menu])
+        o_menu = pm.uitypes.PyUI(fullname)
+        break
+
+    return o_menu
+
+
+def create_menu_items():
+    edit_menu = get_channel_box_menu('Edit')
+    channel_box_popup = get_channel_box_popupmenu()
+
+    mel.eval('generateCBEditMenu {} 0;'.format(edit_menu.name()))
+    mel.eval('generateChannelMenu {} 1;'.format(channel_box_popup.name()))
+
+    d_cbf_items = {'jlr_cbf_attrMoveUp': {'label': 'Move Up', 'command': move_up_attribute},
+                   'jlr_cbf_attrMoveDown': {'label': 'Move Down', 'command': move_down_attribute}
+                   }
+
+    d_cbpm_items = {'jlr_cbpm_attrMoveUp': {'label': 'Move Up', 'command': move_up_attribute},
+                    'jlr_cbpm_attrMoveDown': {'label': 'Move Down', 'command': move_down_attribute}
+                    }
+
+    for key, value in d_cbf_items.iteritems():
+        if pm.menuItem(key, q=True, exists=True):
+            pm.deleteUI(key)
+        pm.menuItem(key, parent=edit_menu, **value)
+
+    for key, value in d_cbpm_items.iteritems():
+        if pm.menuItem(key, q=True, exists=True):
+            pm.deleteUI(key)
+        pm.menuItem(key, parent=channel_box_popup, **value)
 
 
 def copy_attr(item_source, item_target, attr_name, move=False):
@@ -156,7 +212,7 @@ def get_attr_connections(source_attr):
     return {'inputs': source_inputs, 'outputs': source_outputs}
 
 
-def move_up_attribute():
+def move_up_attribute(*args):
     selected_attributes = get_selected_attributes()
 
     if not len(pm.ls(sl=1)) or not selected_attributes:
@@ -165,9 +221,11 @@ def move_up_attribute():
 
     selected_items = pm.selected()
     last_parent = None
+    l_attr = list()
 
     for item in selected_items:
         for attribute in selected_attributes:
+
             if item.attr(attribute).parent():
                 attribute = item.attr(attribute).parent().attrName()
                 if attribute == last_parent:
@@ -175,6 +233,12 @@ def move_up_attribute():
                 last_parent = attribute
 
             all_attributes = get_all_user_attributes(item)
+            
+            if attribute not in all_attributes:
+                continue
+
+            l_attr.append('{}.{}'.format(item.nodeName(), attribute))
+            
             pos_attr = all_attributes.index(attribute)
             if pos_attr == 0: continue
 
@@ -185,8 +249,10 @@ def move_up_attribute():
             for attr in below_attr:
                 copy_attr(item, item, attr, move=True)
 
+    pm.select(l_attr, r=True)
 
-def move_down_attribute():
+
+def move_down_attribute(*args):
     selected_attributes = get_selected_attributes()
 
     if not len(pm.ls(sl=1)) or not selected_attributes:
@@ -206,6 +272,10 @@ def move_down_attribute():
                 last_parent = attribute
 
             all_attributes = get_all_user_attributes(item)
+
+            if attribute not in all_attributes:
+                continue
+
             pos_attr = all_attributes.index(attribute)
             if pos_attr == len(all_attributes) - 1: continue
 
@@ -225,15 +295,4 @@ def get_all_user_attributes(item):
 
 
 if __name__ == '__main__':
-    move_down_attribute()
-
-    # mel.eval('file -f -options "v=0;p=17;f=0"  -ignoreVersion  -typ "mayaAscii"'
-    #          '-o "C:/Users/LD_Juan/Documents/maya/projects/default/scenes/attr_tools.ma";'
-    #          'addRecentFile("C:/Users/LD_Juan/Documents/maya/projects/default/scenes/attr_tools.ma", "mayaAscii");')
-    #
-    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'flotante', move=True)
-    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'check', move=True)
-    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'entero', move=True)
-    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'cadena', move=True)
-    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'lista', move=True)
-    # copy_attr(pm.PyNode('obj_attr'), pm.PyNode('target'), 'vv3', move=True)
+    create_menu_items()
