@@ -5,10 +5,12 @@ import pymel.core as pm
 import maya.mel as mel
 
 
+# Menus Items
+
 def get_channel_box_menu(label):
     channel_box_form = pm.uitypes.PyUI(pm.melGlobals['gChannelBoxForm'])
-    name = '|'.join([channel_box_form.name(), channel_box_form.getChildArray()[0]])
-    channel_box_menu_layout = pm.uitypes.PyUI(name)
+    fullname = '|'.join([channel_box_form.name(), channel_box_form.getChildArray()[0]])
+    channel_box_menu_layout = pm.uitypes.PyUI(fullname)
     o_menu = None
 
     for n_menu in channel_box_menu_layout.getMenuArray():
@@ -20,23 +22,20 @@ def get_channel_box_menu(label):
     return o_menu
 
 
-def get_channel_box_popupmenu():
+def get_channel_box_popup_menu():
     channel_box_form = pm.uitypes.PyUI(pm.melGlobals['gChannelBoxForm'])
-    name = '|'.join([channel_box_form.name(), channel_box_form.getChildArray()[0]])
-    channel_box_menu_layout = pm.uitypes.PyUI(name)
-    o_menu = None
+    fullname = '|'.join([channel_box_form.name(), channel_box_form.getChildArray()[0]])
+    channel_box_menu_layout = pm.uitypes.PyUI(fullname)
 
-    for n_menu in channel_box_menu_layout.getPopupMenuArray():
-        fullname = '|'.join([channel_box_menu_layout.name(), n_menu])
-        o_menu = pm.uitypes.PyUI(fullname)
-        break
+    n_menu = channel_box_menu_layout.getPopupMenuArray()[0]
+    fullname = '|'.join([channel_box_menu_layout.name(), n_menu])
 
-    return o_menu
+    return pm.uitypes.PyUI(fullname)
 
 
 def create_menu_items():
     edit_menu = get_channel_box_menu('Edit')
-    channel_box_popup = get_channel_box_popupmenu()
+    channel_box_popup = get_channel_box_popup_menu()
 
     mel.eval('generateCBEditMenu {} 0;'.format(edit_menu.name()))
     mel.eval('generateChannelMenu {} 1;'.format(channel_box_popup.name()))
@@ -60,7 +59,12 @@ def create_menu_items():
         pm.menuItem(key, parent=channel_box_popup, **value)
 
 
+# Attribute methods
+
 def copy_attr(item_source, item_target, attr_name, move=False):
+    if type(item_source) is str: item_source = pm.PyNode(item_source)
+    if type(item_target) is str: item_target = pm.PyNode(item_target)
+
     if not item_source.hasAttr(attr_name):
         pm.warning('The attribute{} does not exist in {}'.format(attr_name, item_source))
         return None
@@ -79,8 +83,6 @@ def copy_attr(item_source, item_target, attr_name, move=False):
     source_child_info = dict()
     source_child_connections = dict()
     if source_is_compound:
-        source_child_info = dict()
-        source_child_connections = dict()
         for child in source_attr.getChildren():
             source_child_info[child.attrName()] = get_attr_info(child)
             source_child_connections[child.attrName()] = get_attr_connections(child)
@@ -123,22 +125,13 @@ def create_attr(item, attr_data):
     attr_name = attr_data['longName']
 
     # Check if the attribute exists within the item.
-    # If it exists, a number will be added to the end of the name.
-    cont_name = 0
-    tmp_name = attr_name
-    while item.hasAttr(tmp_name):
-        cont_name += 1
-        tmp_name = attr_name + str(cont_name).zfill(2)
+    if item.hasAttr(attr_name):
+        pm.warning('The attribute {} already exist in {}.'
+                   'Can not create a new attribute with the same name'.format(attr_name, item))
 
-    if cont_name:
-        pm.warning('There is already an attribute {} inside {}'.format(attr_name, item))
-        attr_name = attr_name + str(cont_name).zfill(2)
-        attr_data['niceName'] = attr_data['niceName'] + str(cont_name).zfill(2)
-        attr_data['shortName'] = attr_data['shortName'] + str(cont_name).zfill(2)
-        pm.warning('An attribute {} will be created inside {}'.format(attr_name, item))
-
-    # Creating the attribute
-    pm.addAttr(item, **attr_data)
+    else:
+        # Creating the attribute
+        pm.addAttr(item, **attr_data)
 
 
 def connect_attr(attribute, inputs=None, outputs=None):
@@ -160,14 +153,16 @@ def connect_attr(attribute, inputs=None, outputs=None):
 
 def make_shared_connection(attr_source, target_attr):
     attr_previous_connected = target_attr.inputs(p=1)[0]
+
     pb = pm.createNode('pairBlend')
-    is_triple = attr_previous_connected.type() == 'double3'
-    attr_previous_connected.connect(pb.inTranslate1 if is_triple else pb.inTranslateX1)
-    attr_source.connect(pb.inTranslate2 if is_triple else pb.inTranslateX2)
-    if is_triple:
-        pb.outTranslate.connect(target_attr, force=True)
-    else:
-        pb.outTranslateX.connect(target_attr, force=True)
+    d_previous = {True: pb.inTranslate1, False: pb.inTranslateX1}
+    d_source = {True: pb.inTranslate2, False: pb.inTranslateX2}
+    d_out = {True: pb.outTranslate, False: pb.outTranslateX}
+
+    is_compound = attr_previous_connected.isCompound()
+    attr_previous_connected.connect(d_previous[is_compound])
+    attr_source.connect(d_source[is_compound])
+    d_out[is_compound].connect(target_attr, force=True)
 
 
 def get_selected_attributes():
@@ -207,9 +202,7 @@ def get_attr_info(attribute):
 
 
 def get_attr_connections(source_attr):
-    source_inputs = source_attr.inputs(p=True)
-    source_outputs = source_attr.outputs(p=True)
-    return {'inputs': source_inputs, 'outputs': source_outputs}
+    return {'inputs': source_attr.inputs(p=True), 'outputs': source_attr.outputs(p=True)}
 
 
 def move_up_attribute(*args):
@@ -221,7 +214,6 @@ def move_up_attribute(*args):
 
     selected_items = pm.selected()
     last_parent = None
-    l_attr = list()
 
     for item in selected_items:
         for attribute in selected_attributes:
@@ -233,12 +225,10 @@ def move_up_attribute(*args):
                 last_parent = attribute
 
             all_attributes = get_all_user_attributes(item)
-            
+
             if attribute not in all_attributes:
                 continue
 
-            l_attr.append('{}.{}'.format(item.nodeName(), attribute))
-            
             pos_attr = all_attributes.index(attribute)
             if pos_attr == 0: continue
 
@@ -248,8 +238,6 @@ def move_up_attribute(*args):
             copy_attr(item, item, attribute, move=True)
             for attr in below_attr:
                 copy_attr(item, item, attr, move=True)
-
-    pm.select(l_attr, r=True)
 
 
 def move_down_attribute(*args):
@@ -295,4 +283,5 @@ def get_all_user_attributes(item):
 
 
 if __name__ == '__main__':
-    create_menu_items()
+    # create_menu_items()
+    copy_attr('obj_attr', 'target', 'entero')
