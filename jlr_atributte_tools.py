@@ -49,13 +49,11 @@ def create_menu_items():
                     }
 
     for key, value in d_cbf_items.iteritems():
-        if pm.menuItem(key, q=True, exists=True):
-            pm.deleteUI(key)
+        if pm.menuItem(key, q=True, exists=True): pm.deleteUI(key)
         pm.menuItem(key, parent=edit_menu, **value)
 
     for key, value in d_cbpm_items.iteritems():
-        if pm.menuItem(key, q=True, exists=True):
-            pm.deleteUI(key)
+        if pm.menuItem(key, q=True, exists=True): pm.deleteUI(key)
         pm.menuItem(key, parent=channel_box_popup, **value)
 
 
@@ -69,7 +67,7 @@ def copy_attr(item_source, item_target, attr_name, move=False):
         pm.warning('The attribute{} does not exist in {}'.format(attr_name, item_source))
         return None
 
-    # Get source attribute info
+    # Get source attribute info.
     source_attr = item_source.attr(attr_name)
     attr_data = get_attr_info(source_attr)
     if not attr_data:
@@ -80,6 +78,7 @@ def copy_attr(item_source, item_target, attr_name, move=False):
     source_is_compound = source_attr.isCompound()
     source_connections = get_attr_connections(source_attr)
 
+    # If attribute is a Compound, read the children attributes info.
     source_child_info = dict()
     source_child_connections = dict()
     if source_is_compound:
@@ -87,6 +86,7 @@ def copy_attr(item_source, item_target, attr_name, move=False):
             source_child_info[child.attrName()] = get_attr_info(child)
             source_child_connections[child.attrName()] = get_attr_connections(child)
 
+    # If move mode, remove the source attribute.
     if move:
         if source_is_locked: source_attr.unlock()
         pm.deleteAttr(source_attr)
