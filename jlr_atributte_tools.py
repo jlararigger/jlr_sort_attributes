@@ -5,40 +5,21 @@ import pymel.core as pm
 import maya.mel as mel
 
 
+##############################################
 # Menus Items
+##############################################
 
-def get_channel_box_menu(label):
-    channel_box_form = pm.uitypes.PyUI(pm.melGlobals['gChannelBoxForm'])
-    fullname = '|'.join([channel_box_form.name(), channel_box_form.getChildArray()[0]])
-    channel_box_menu_layout = pm.uitypes.PyUI(fullname)
-    o_menu = None
+def create_menu_commands():
+    """
+    Create the menu commands
+    Move Up: Move the selected attributes one position up
+    Move Down: Move the selected attributes one position down
+    """
+    edit_menu = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|menu3'
+    channel_box_popup = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|frameLayout1|mainChannelBox|popupMenu1'
 
-    for n_menu in channel_box_menu_layout.getMenuArray():
-        fullname = '|'.join([channel_box_menu_layout.name(), n_menu])
-        o_menu = pm.uitypes.PyUI(fullname)
-        if o_menu.getLabel() == label:
-            break
-
-    return o_menu
-
-
-def get_channel_box_popup_menu():
-    channel_box_form = pm.uitypes.PyUI(pm.melGlobals['gChannelBoxForm'])
-    fullname = '|'.join([channel_box_form.name(), channel_box_form.getChildArray()[0]])
-    channel_box_menu_layout = pm.uitypes.PyUI(fullname)
-
-    n_menu = channel_box_menu_layout.getPopupMenuArray()[0]
-    fullname = '|'.join([channel_box_menu_layout.name(), n_menu])
-
-    return pm.uitypes.PyUI(fullname)
-
-
-def create_menu_items():
-    edit_menu = get_channel_box_menu('Edit')
-    channel_box_popup = get_channel_box_popup_menu()
-
-    mel.eval('generateCBEditMenu {} 0;'.format(edit_menu.name()))
-    mel.eval('generateChannelMenu {} 1;'.format(channel_box_popup.name()))
+    mel.eval('generateCBEditMenu {} 0;'.format(edit_menu))
+    mel.eval('generateChannelMenu {} 1;'.format(channel_box_popup))
 
     d_cbf_items = {'jlr_cbf_attrMoveUp': {'label': 'Move Up', 'command': move_up_attribute},
                    'jlr_cbf_attrMoveDown': {'label': 'Move Down', 'command': move_down_attribute}
@@ -49,17 +30,34 @@ def create_menu_items():
                     }
 
     for key, value in d_cbf_items.iteritems():
-        if pm.menuItem(key, q=True, exists=True): pm.deleteUI(key)
+        if pm.menuItem(key, q=True, exists=True):
+            pm.deleteUI(key)
+
         pm.menuItem(key, parent=edit_menu, **value)
 
     for key, value in d_cbpm_items.iteritems():
-        if pm.menuItem(key, q=True, exists=True): pm.deleteUI(key)
+        if pm.menuItem(key, q=True, exists=True):
+            pm.deleteUI(key)
+
         pm.menuItem(key, parent=channel_box_popup, **value)
 
 
+#########################################
 # Attribute methods
+#########################################
 
 def copy_attr(item_source, item_target, attr_name, move=False):
+    """
+    Copy or move a existing user defined attribute between objects.
+    Copy the source attribute connections to the new attribute.
+    If the attribute is copied and has connections, these will be connected through a pairBlend node in order
+    to maintain the old and new connections.
+    :param item_source: String or Node. Object with the user defined attribute.
+    :param item_target: String or Node. Object will receive the user defined attribute.
+    :param attr_name: String. Name of the attribute to be copied.
+    :param move: Boolean. Indicate if the attribute must be copied or moved
+    :return: Attribute. The new attribute.
+    """
     if type(item_source) is str: item_source = pm.PyNode(item_source)
     if type(item_target) is str: item_target = pm.PyNode(item_target)
 
@@ -96,6 +94,7 @@ def copy_attr(item_source, item_target, attr_name, move=False):
 
     # If attribute is a Compound, the children attributes are created
     if source_is_compound:
+
         for child_key in sorted(source_child_info.keys()):
             create_attr(item_target, source_child_info[child_key])
 
@@ -169,6 +168,7 @@ def get_selected_attributes():
     attrs = pm.channelBox('mainChannelBox', q=True, sma=True)
     if not attrs:
         return []
+
     return attrs
 
 
@@ -283,5 +283,5 @@ def get_all_user_attributes(item):
 
 
 if __name__ == '__main__':
-    # create_menu_items()
-    copy_attr('obj_attr', 'target', 'entero')
+    create_menu_commands()
+    # copy_attr('obj_attr', 'target', 'entero')
