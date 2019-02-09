@@ -46,27 +46,27 @@ def create_menu_commands():
 # Attribute methods
 #########################################
 
-def copy_attr(item_source, item_target, attr_name, move=False):
+def copy_attr(node_source, node_target, attr_name, move=False):
     """
-    Copy or move a existing user defined attribute between objects.
+    Copy or move a existing user defined attribute between nodes.
     Copy the source attribute connections to the new attribute.
     If the attribute is copied and has connections, these will be connected through a pairBlend node in order
     to maintain the old and new connections.
-    :param item_source: String or Node. Object with the user defined attribute.
-    :param item_target: String or Node. Object will receive the user defined attribute.
+    :param node_source: String or Node. Object with the user defined attribute.
+    :param node_target: String or Node. Object will receive the user defined attribute.
     :param attr_name: String. Name of the attribute to be copied.
     :param move: Boolean. Indicate if the attribute must be copied or moved
     :return: Attribute. The new attribute.
     """
-    if type(item_source) is str: item_source = pm.PyNode(item_source)
-    if type(item_target) is str: item_target = pm.PyNode(item_target)
+    if type(node_source) is str: node_source = pm.PyNode(node_source)
+    if type(node_target) is str: node_target = pm.PyNode(node_target)
 
-    if not item_source.hasAttr(attr_name):
-        pm.warning('The attribute{} does not exist in {}'.format(attr_name, item_source))
+    if not node_source.hasAttr(attr_name):
+        pm.warning('The attribute{} does not exist in {}'.format(attr_name, node_source))
         return None
 
     # Get source attribute info.
-    source_attr = item_source.attr(attr_name)
+    source_attr = node_source.attr(attr_name)
     attr_data = get_attr_info(source_attr)
     if not attr_data:
         return None
@@ -90,15 +90,15 @@ def copy_attr(item_source, item_target, attr_name, move=False):
         pm.deleteAttr(source_attr)
 
     # Create the attribute
-    create_attr(item_target, attr_data)
+    create_attr(node_target, attr_data)
 
     # If attribute is a Compound, the children attributes are created
     if source_is_compound:
 
         for child_key in sorted(source_child_info.keys()):
-            create_attr(item_target, source_child_info[child_key])
+            create_attr(node_target, source_child_info[child_key])
 
-    new_attr = item_target.attr(attr_name)
+    new_attr = node_target.attr(attr_name)
 
     # Copy the value
     new_attr.set(source_value)
@@ -120,20 +120,32 @@ def copy_attr(item_source, item_target, attr_name, move=False):
     return new_attr
 
 
-def create_attr(item, attr_data):
-    attr_name = attr_data['longName']
+def create_attr(node, attr_data):
+    """
+    This method creates a new attribute in a node.
+    If the node already has an attribute with the same name, the new attribute will not be created.
+    :param node: Node
+    :param attr_data: dictionary with the necessary data to create the attribute.
+    """
 
-    # Check if the attribute exists within the item.
-    if item.hasAttr(attr_name):
+    # It checks if the attribute already exists within the node.
+    attr_name = attr_data['longName']
+    if node.hasAttr(attr_name):
         pm.warning('The attribute {} already exist in {}.'
-                   'Can not create a new attribute with the same name'.format(attr_name, item))
+                   'Can not create a new attribute with the same name'.format(attr_name, node))
 
     else:
         # Creating the attribute
-        pm.addAttr(item, **attr_data)
+        pm.addAttr(node, **attr_data)
 
 
 def connect_attr(attribute, inputs=None, outputs=None):
+    """
+    It connects an attribute to passed inputs and outputs.
+    :param attribute: Attribute Object.
+    :param inputs: list of inputs attributes.
+    :param outputs: list of outputs attributes.
+    """
     if inputs:
         for attr_input in inputs:
             if attribute.inputs():
@@ -151,6 +163,12 @@ def connect_attr(attribute, inputs=None, outputs=None):
 
 
 def make_shared_connection(attr_source, target_attr):
+    """
+    It connects an attribute to other connected attribute by pairblend node.
+    This way the target attribute does'nt lose their existing connections.
+    :param attr_source: Source attribute.
+    :param target_attr: Target attribute.
+    """
     attr_previous_connected = target_attr.inputs(p=1)[0]
 
     pb = pm.createNode('pairBlend')
@@ -165,6 +183,11 @@ def make_shared_connection(attr_source, target_attr):
 
 
 def get_selected_attributes():
+    """
+    Get the selected attributes in the ChannelBox.
+    If there are not attributes selected, this method returns a empty list.
+    :return: list with the selected attributes.
+    """
     attrs = pm.channelBox('mainChannelBox', q=True, sma=True)
     if not attrs:
         return []
@@ -173,6 +196,12 @@ def get_selected_attributes():
 
 
 def get_attr_info(attribute):
+    """
+    Get all data of a passed attribute.
+    The data that it returns depends on the type of attribute.
+    :param attribute: Attribute Object
+    :return: dictionary with the necessary data to recreate the attribute.
+    """
     attribute_type = str(attribute.type())
 
     d_data = dict()
@@ -202,10 +231,19 @@ def get_attr_info(attribute):
 
 
 def get_attr_connections(source_attr):
+    """
+    It returns the inputs and outputs connections of an attribute.
+    :param source_attr: Attribute Object
+    :return: dictionary with the inputs and outputs connections.
+    """
     return {'inputs': source_attr.inputs(p=True), 'outputs': source_attr.outputs(p=True)}
 
 
 def move_up_attribute(*args):
+    """
+    It moves a selected attributes in the channel box one position up.
+    :param args: list of arguments
+    """
     selected_attributes = get_selected_attributes()
 
     if not len(pm.ls(sl=1)) or not selected_attributes:
@@ -241,6 +279,10 @@ def move_up_attribute(*args):
 
 
 def move_down_attribute(*args):
+    """
+    It moves a selected attributes in the channel box one position down.
+    :param args: list of arguments
+    """
     selected_attributes = get_selected_attributes()
 
     if not len(pm.ls(sl=1)) or not selected_attributes:
@@ -274,10 +316,15 @@ def move_down_attribute(*args):
                 copy_attr(item, item, attr, move=True)
 
 
-def get_all_user_attributes(item):
+def get_all_user_attributes(node):
+    """
+    It gets all user defined attributes of a node.
+    :param node: Node.
+    :return: list with all user defined attributes.
+    """
     all_attributes = list()
-    for attr in pm.listAttr(item, ud=True):
-        if not item.attr(attr).parent():
+    for attr in pm.listAttr(node, ud=True):
+        if not node.attr(attr).parent():
             all_attributes.append(attr)
     return all_attributes
 
