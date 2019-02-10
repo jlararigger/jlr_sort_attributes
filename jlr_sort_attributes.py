@@ -1,8 +1,31 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import pymel.core as pm
 import maya.mel as mel
+
+
+##################################################################################
+# jlr_sort_attributes.py - Python Script
+##################################################################################
+# Description:
+# Tools for sort user defined attributes in the channel box.
+# Creates two menu item commands in the Main Modify Menu, Channel Box Edit Menu and Channel Box Popup Menu.
+#
+# Author: Juan Lara.
+##################################################################################
+# Install:
+#
+# In the userSetup.py add the following lines:
+#
+# import maya.cmds as cmds
+# import jlr_sort_attributes
+#
+# cmds.evalDeferred('jlr_sort_attributes.create_menu_commands()')
+#
+##################################################################################
+# Usage:
+# Select one or more user defined attributes in the channel box.
+# Click "Move Up Attr" for move the selected attributes one position up.
+# Or click "Move Down Attr" for move the selected attributes one position down.
+##################################################################################
 
 
 ##############################################
@@ -21,6 +44,7 @@ def create_menu_commands():
 
     mel.eval('generateCBEditMenu {} 0;'.format(edit_menu))
     mel.eval('generateChannelMenu {} 1;'.format(channel_box_popup))
+    mel.eval('ModObjectsMenu {};'.format(main_modify_menu))
 
     d_cbf_items = {'jlr_cbf_attrMoveUp': {'label': 'Move Up Attr', 'command': move_up_attribute},
                    'jlr_cbf_attrMoveDown': {'label': 'Move Down Attr', 'command': move_down_attribute}
@@ -54,7 +78,7 @@ def add_commands_to_menu(d_commands, menu, divider=False):
     """
     if divider:
         name = '{}_{}'.format(menu.split('|')[-1], 'jlr_divider')
-        pm.menuItem(name, parent=menu, divider=divider)
+        pm.menuItem(name, parent=menu, divider=divider, dividerLabel='Sort Attributes')
 
     for key, value in d_commands.iteritems():
         name = '{}_{}'.format(menu.split('|')[-1], key)
@@ -71,14 +95,16 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     Copy the source attribute connections to the new attribute.
     If the attribute is copied and has connections, these will be connected through a pairBlend node in order
     to maintain the old and new connections.
-    :param node_source: String or Node. Object with the user defined attribute.
-    :param node_target: String or Node. Object will receive the user defined attribute.
+    :param node_source: String or dagNode. Object with the user defined attribute.
+    :param node_target: String or dagNode. Object will receive the user defined attribute.
     :param attr_name: String. Name of the attribute to be copied.
     :param move: Boolean. Indicate if the attribute must be copied or moved.
     :return: Attribute. The new attribute.
     """
-    if type(node_source) is str: node_source = pm.PyNode(node_source)
-    if type(node_target) is str: node_target = pm.PyNode(node_target)
+    if type(node_source) is str:
+        node_source = pm.PyNode(node_source)
+    if type(node_target) is str:
+        node_target = pm.PyNode(node_target)
 
     if not node_source.hasAttr(attr_name):
         pm.warning('The attribute{} does not exist in {}'.format(attr_name, node_source))
@@ -105,7 +131,8 @@ def copy_attr(node_source, node_target, attr_name, move=False):
 
     # If move mode, remove the source attribute.
     if move:
-        if source_is_locked: source_attr.unlock()
+        if source_is_locked:
+            source_attr.unlock()
         pm.deleteAttr(source_attr)
 
     # Create the attribute
@@ -143,7 +170,7 @@ def create_attr(node, attr_data):
     """
     This method creates a new attribute in a node.
     If the node already has an attribute with the same name, the new attribute will not be created.
-    :param node: Node.
+    :param node: dagNode.
     :param attr_data: dictionary with the necessary data to create the attribute.
     """
 
@@ -237,8 +264,10 @@ def get_attr_info(attribute):
 
     if attribute_type in ['long', 'double', 'bool']:
         d_data['defaultValue'] = attribute.get(default=True)
-        if attribute.getMax(): d_data['maxValue'] = attribute.getMax()
-        if attribute.getMin(): d_data['minValue'] = attribute.getMin()
+        if attribute.getMax():
+            d_data['maxValue'] = attribute.getMax()
+        if attribute.getMin():
+            d_data['minValue'] = attribute.getMin()
 
     if attribute_type in ['enum']:
         d_data['enumName'] = attribute.getEnums()
@@ -287,7 +316,8 @@ def move_up_attribute(*args):
                 continue
 
             pos_attr = all_attributes.index(attribute)
-            if pos_attr == 0: continue
+            if pos_attr == 0:
+                continue
 
             below_attr = all_attributes[pos_attr - 1:]
             below_attr.remove(attribute)
@@ -326,7 +356,8 @@ def move_down_attribute(*args):
                 continue
 
             pos_attr = all_attributes.index(attribute)
-            if pos_attr == len(all_attributes) - 1: continue
+            if pos_attr == len(all_attributes) - 1:
+                continue
 
             below_attr = all_attributes[pos_attr + 2:]
 
@@ -338,7 +369,7 @@ def move_down_attribute(*args):
 def get_all_user_attributes(node):
     """
     It gets all user defined attributes of a node.
-    :param node: Node.
+    :param node: dagNode.
     :return: list with all user defined attributes.
     """
     all_attributes = list()
@@ -346,7 +377,3 @@ def get_all_user_attributes(node):
         if not node.attr(attr).parent():
             all_attributes.append(attr)
     return all_attributes
-
-
-if __name__ == '__main__':
-    create_menu_commands()
