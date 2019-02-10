@@ -12,8 +12,8 @@ import maya.mel as mel
 # Author: Juan Lara.
 ##################################################################################
 # Install:
-#
-# In the userSetup.py add the following lines:
+# 1- Copy in the scripts directory this script file.
+# 2- In the userSetup.py add the following lines:
 #
 # import maya.cmds as cmds
 # import jlr_sort_attributes
@@ -133,7 +133,8 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     if move:
         if source_is_locked:
             source_attr.unlock()
-        pm.deleteAttr(source_attr)
+            # TODO: Check if the connections are blocked to get the attribute removed
+            pm.deleteAttr(source_attr)
 
     # Create the attribute
     create_attr(node_target, attr_data)
@@ -287,6 +288,18 @@ def get_attr_connections(source_attr):
     return {'inputs': source_attr.inputs(p=True), 'outputs': source_attr.outputs(p=True)}
 
 
+def select_attributes(attributes, nodes):
+    """
+    Selects the passed attributes in the main Channel Box.
+    :param attributes: List of the attributes to select.
+    :param nodes: List of the objects with the attributes to select
+    """
+    to_select = ['{}.{}'.format(n, a) for a in attributes for n in nodes]
+    pm.select(nodes, r=True)
+    str_command = "import pymel.core as pm\npm.channelBox('mainChannelBox', e=True, select={}, update=True)"
+    pm.evalDeferred(str_command.format(to_select))
+
+
 def move_up_attribute(*args):
     """
     It moves a selected attributes in the channel box one position up.
@@ -326,6 +339,8 @@ def move_up_attribute(*args):
             for attr in below_attr:
                 copy_attr(item, item, attr, move=True)
 
+    select_attributes(selected_attributes, selected_items)
+
 
 def move_down_attribute(*args):
     """
@@ -364,6 +379,8 @@ def move_down_attribute(*args):
             copy_attr(item, item, attribute, move=True)
             for attr in below_attr:
                 copy_attr(item, item, attr, move=True)
+
+    select_attributes(selected_attributes, selected_items)
 
 
 def get_all_user_attributes(node):
