@@ -11,35 +11,54 @@ import maya.mel as mel
 
 def create_menu_commands():
     """
-    Create the menu commands
-    Move Up: Move the selected attributes one position up
-    Move Down: Move the selected attributes one position down
+    Create the menu commands.
+    Move Up: Move the selected attributes one position up.
+    Move Down: Move the selected attributes one position down.
     """
     edit_menu = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|menu3'
     channel_box_popup = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|frameLayout1|mainChannelBox|popupMenu1'
+    main_modify_menu = 'MayaWindow|mainModifyMenu'
 
     mel.eval('generateCBEditMenu {} 0;'.format(edit_menu))
     mel.eval('generateChannelMenu {} 1;'.format(channel_box_popup))
 
-    d_cbf_items = {'jlr_cbf_attrMoveUp': {'label': 'Move Up', 'command': move_up_attribute},
-                   'jlr_cbf_attrMoveDown': {'label': 'Move Down', 'command': move_down_attribute}
+    d_cbf_items = {'jlr_cbf_attrMoveUp': {'label': 'Move Up Attr', 'command': move_up_attribute},
+                   'jlr_cbf_attrMoveDown': {'label': 'Move Down Attr', 'command': move_down_attribute}
                    }
 
-    d_cbpm_items = {'jlr_cbpm_attrMoveUp': {'label': 'Move Up', 'command': move_up_attribute},
-                    'jlr_cbpm_attrMoveDown': {'label': 'Move Down', 'command': move_down_attribute}
-                    }
+    remove_ui_item_menu(['jlr_divider'])
+    remove_ui_item_menu(d_cbf_items.keys())
 
-    for key, value in d_cbf_items.iteritems():
-        if pm.menuItem(key, q=True, exists=True):
-            pm.deleteUI(key)
+    add_commands_to_menu(d_cbf_items, edit_menu, divider=True)
+    add_commands_to_menu(d_cbf_items, channel_box_popup, divider=True)
+    add_commands_to_menu(d_cbf_items, main_modify_menu, divider=True)
 
-        pm.menuItem(key, parent=edit_menu, **value)
 
-    for key, value in d_cbpm_items.iteritems():
-        if pm.menuItem(key, q=True, exists=True):
-            pm.deleteUI(key)
+def remove_ui_item_menu(name_list):
+    """
+    It removes command menu items from maya UI.
+    :param name_list: list with the name of UI items to remove.
+    """
+    for name in name_list:
+        for item in pm.lsUI():
+            if item.endswith(name):
+                pm.deleteUI(item)
 
-        pm.menuItem(key, parent=channel_box_popup, **value)
+
+def add_commands_to_menu(d_commands, menu, divider=False):
+    """
+    It adds a new menu items to a menu.
+    :param d_commands: dictionary with the name, label and command of menu item.
+    :param menu: menu object where the items will be created.
+    :param divider: Boolean that indicates if a divider must be added before creating the menu items.
+    """
+    if divider:
+        name = '{}_{}'.format(menu.split('|')[-1], 'jlr_divider')
+        pm.menuItem(name, parent=menu, divider=divider)
+
+    for key, value in d_commands.iteritems():
+        name = '{}_{}'.format(menu.split('|')[-1], key)
+        pm.menuItem(name, parent=menu, **value)
 
 
 #########################################
@@ -55,7 +74,7 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     :param node_source: String or Node. Object with the user defined attribute.
     :param node_target: String or Node. Object will receive the user defined attribute.
     :param attr_name: String. Name of the attribute to be copied.
-    :param move: Boolean. Indicate if the attribute must be copied or moved
+    :param move: Boolean. Indicate if the attribute must be copied or moved.
     :return: Attribute. The new attribute.
     """
     if type(node_source) is str: node_source = pm.PyNode(node_source)
@@ -124,7 +143,7 @@ def create_attr(node, attr_data):
     """
     This method creates a new attribute in a node.
     If the node already has an attribute with the same name, the new attribute will not be created.
-    :param node: Node
+    :param node: Node.
     :param attr_data: dictionary with the necessary data to create the attribute.
     """
 
@@ -199,7 +218,7 @@ def get_attr_info(attribute):
     """
     Get all data of a passed attribute.
     The data that it returns depends on the type of attribute.
-    :param attribute: Attribute Object
+    :param attribute: Attribute Object.
     :return: dictionary with the necessary data to recreate the attribute.
     """
     attribute_type = str(attribute.type())
@@ -233,7 +252,7 @@ def get_attr_info(attribute):
 def get_attr_connections(source_attr):
     """
     It returns the inputs and outputs connections of an attribute.
-    :param source_attr: Attribute Object
+    :param source_attr: Attribute Object.
     :return: dictionary with the inputs and outputs connections.
     """
     return {'inputs': source_attr.inputs(p=True), 'outputs': source_attr.outputs(p=True)}
@@ -242,7 +261,7 @@ def get_attr_connections(source_attr):
 def move_up_attribute(*args):
     """
     It moves a selected attributes in the channel box one position up.
-    :param args: list of arguments
+    :param args: list of arguments.
     """
     selected_attributes = get_selected_attributes()
 
@@ -281,7 +300,7 @@ def move_up_attribute(*args):
 def move_down_attribute(*args):
     """
     It moves a selected attributes in the channel box one position down.
-    :param args: list of arguments
+    :param args: list of arguments.
     """
     selected_attributes = get_selected_attributes()
 
@@ -331,4 +350,3 @@ def get_all_user_attributes(node):
 
 if __name__ == '__main__':
     create_menu_commands()
-    # copy_attr('obj_attr', 'target', 'entero')
