@@ -131,9 +131,8 @@ def copy_attr(node_source, node_target, attr_name, move=False):
             source_child_info[child.attrName()] = get_attr_info(child)
             source_child_connections[child.attrName()] = get_attr_connections(child)
 
-    # If move mode, remove the source attribute.
-    # To do this, you have to verify if the attribute itself or any of its connections are not blocked.
-    l_check = [source_attr]
+    # Creates a list with all attributes connected to source attribute and its lock status.
+    l_check = list()
     l_check.extend(source_connections['inputs'])
     l_check.extend(source_connections['outputs'])
     if source_is_compound:
@@ -141,13 +140,16 @@ def copy_attr(node_source, node_target, attr_name, move=False):
             l_check.extend(source_child_connections[child.attrName()]['inputs'])
             l_check.extend(source_child_connections[child.attrName()]['outputs'])
 
-    if move:
-        for attr in l_check:
-            if attr.isLocked():
-                pm.warning('The {} attribute can not be moved. '
-                           'Check if the attribute itself or any of its connections are blocked.'.format(attr_name))
-                return None
+    l_locked = [[attr, attr.isLocked()] for attr in l_check]
 
+    # Unlock all attributes connected
+    for attr in l_check:
+        attr.unlock()
+
+    # If move is True, delete the source attribute.
+    if move:
+        if source_attr.isLocked:
+            source_attr.unlock()
         pm.deleteAttr(source_attr)
 
     # Create the attribute
@@ -173,10 +175,15 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     # Connect the attributes
     connect_attr(new_attr, **source_connections)
 
-    # If attribute is a Compound, the children attributes are connected
+    # If attribute is a Compound, the children attributes are connected.
     if source_is_compound:
         for attr_child, child_key in zip(new_attr.getChildren(), sorted(source_child_connections.keys())):
             connect_attr(attr_child, **source_child_connections[child_key])
+
+    # Lock all attributes connected locked previously.
+    for attr, is_locked in l_locked:
+        if is_locked:
+            attr.lock()
 
     return new_attr
 
