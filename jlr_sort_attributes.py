@@ -95,15 +95,17 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     Copy the source attribute connections to the new attribute.
     If the attribute is copied and has connections, these will be connected through a pairBlend node in order
     to maintain the old and new connections.
+    If the attribute can not be moved returns None.
     :param node_source: String or dagNode. Object with the user defined attribute.
     :param node_target: String or dagNode. Object will receive the user defined attribute.
     :param attr_name: String. Name of the attribute to be copied.
     :param move: Boolean. Indicate if the attribute must be copied or moved.
     :return: Attribute. The new attribute.
     """
-    if type(node_source) is str:
+    if isinstance(node_source, basestring):
         node_source = pm.PyNode(node_source)
-    if type(node_target) is str:
+
+    if isinstance(node_target, basestring):
         node_target = pm.PyNode(node_target)
 
     if not node_source.hasAttr(attr_name):
@@ -130,11 +132,23 @@ def copy_attr(node_source, node_target, attr_name, move=False):
             source_child_connections[child.attrName()] = get_attr_connections(child)
 
     # If move mode, remove the source attribute.
+    # To do this, you have to verify if the attribute itself or any of its connections are not blocked.
+    l_check = [source_attr]
+    l_check.extend(source_connections['inputs'])
+    l_check.extend(source_connections['outputs'])
+    if source_is_compound:
+        for child in source_attr.getChildren():
+            l_check.extend(source_child_connections[child.attrName()]['inputs'])
+            l_check.extend(source_child_connections[child.attrName()]['outputs'])
+
     if move:
-        if source_is_locked:
-            source_attr.unlock()
-            # TODO: Check if the connections are blocked to get the attribute removed
-            pm.deleteAttr(source_attr)
+        for attr in l_check:
+            if attr.isLocked():
+                pm.warning('The {} attribute can not be moved. '
+                           'Check if the attribute itself or any of its connections are blocked.'.format(attr_name))
+                return None
+
+        pm.deleteAttr(source_attr)
 
     # Create the attribute
     create_attr(node_target, attr_data)
@@ -335,9 +349,14 @@ def move_up_attribute(*args):
             below_attr = all_attributes[pos_attr - 1:]
             below_attr.remove(attribute)
 
-            copy_attr(item, item, attribute, move=True)
+            result = copy_attr(item, item, attribute, move=True)
+            if not result:
+                return
+
             for attr in below_attr:
-                copy_attr(item, item, attr, move=True)
+                result = copy_attr(item, item, attr, move=True)
+                if not result:
+                    return
 
     select_attributes(selected_attributes, selected_items)
 
@@ -376,9 +395,13 @@ def move_down_attribute(*args):
 
             below_attr = all_attributes[pos_attr + 2:]
 
-            copy_attr(item, item, attribute, move=True)
+            result = copy_attr(item, item, attribute, move=True)
+            if not result:
+                return
             for attr in below_attr:
-                copy_attr(item, item, attr, move=True)
+                result = copy_attr(item, item, attr, move=True)
+                if not result:
+                    return
 
     select_attributes(selected_attributes, selected_items)
 
