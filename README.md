@@ -10,7 +10,9 @@ Creates two menu item commands in the Main Modify Menu, Channel Box Edit Menu an
 
 
 **Install:**
+
 1- Copy in the scripts directory this script file.
+
 2- In the userSetup.py add the following lines:
 
     import maya.cmds as cmds
@@ -21,5 +23,6 @@ Creates two menu item commands in the Main Modify Menu, Channel Box Edit Menu an
 **Usage:**
 
 Select one or more user defined attributes in the channel box.
-Click "Move Up Attr" for move the selected attributes one position up.
-Or click "Move Down Attr" for move the selected attributes one position down.
+
+Click "Move Up Attr" for move the selected attributes one position up 
+or click "Move Down Attr" for move the selected attributes one position down.
