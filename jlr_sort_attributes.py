@@ -1,7 +1,6 @@
 import pymel.core as pm
 import maya.mel as mel
 
-
 ##################################################################################
 # jlr_sort_attributes.py - Python Script
 ##################################################################################
@@ -21,11 +20,28 @@ import maya.mel as mel
 # cmds.evalDeferred('jlr_sort_attributes.create_menu_commands()')
 #
 ##################################################################################
-# Usage:
-# Select one or more user defined attributes in the channel box.
-# Click "Move Up Attr" for move the selected attributes one position up.
-# Or click "Move Down Attr" for move the selected attributes one position down.
+# How to use "Move Attributes Up" or "Move Attributes Down":
+#
+# Select one or more user-defined attributes in the channel box.
+# Click on "Move Attributes Up" to move the selected attributes one position up.
+# Or click on "Move Attributes down" to move the selected attributes one position down.
+#
+# --------------------------------------------------------------------------------
+# How to use Copy, Cut and Paste Attributes:
+#
+# First select an object and in the channel box, select one or more user-defined attributes.
+# Click on "Copy attributes" to copy the selected attributes.
+# Or click on 'Cut attributes' to move the selected attributes.
+# Finally select the object where you want to copy or move the previously selected attributes
+# and click on "Paste attributes".
 ##################################################################################
+
+#########################################
+# Global Variables
+#########################################
+
+__jlr_copy_data = None
+__jlr_copy_mode = None
 
 
 ##############################################
@@ -46,16 +62,22 @@ def create_menu_commands():
     mel.eval('generateChannelMenu {} 1;'.format(channel_box_popup))
     mel.eval('ModObjectsMenu {};'.format(main_modify_menu))
 
-    d_cbf_items = {'jlr_cbf_attrMoveUp': {'label': 'Move Up Attr', 'command': move_up_attribute},
-                   'jlr_cbf_attrMoveDown': {'label': 'Move Down Attr', 'command': move_down_attribute}
-                   }
+    channelbox_menuitems = [
+        {'name': 'jlr_sort_divider', 'label': 'Sort Attributes', 'command': None},
+        {'name': 'jlr_cbf_attrMoveUp', 'label': 'Move Attributes Up', 'command': move_up_attribute},
+        {'name': 'jlr_cbf_attrMoveDown', 'label': 'Move Attributes Down', 'command': move_down_attribute},
+        {'name': 'jlr_edit_divider', 'label': '', 'command': None},
+        {'name': 'jlr_cbf_attrCut', 'label': 'Cut Attributes', 'command': cut_attribute},
+        {'name': 'jlr_cbf_attrCopy', 'label': 'Copy Attributes', 'command': copy_attribute},
+        {'name': 'jlr_cbf_attrPaste', 'label': 'Paste Attributes', 'command': paste_attribute},
+    ]
 
     remove_ui_item_menu(['jlr_divider'])
-    remove_ui_item_menu(d_cbf_items.keys())
+    remove_ui_item_menu([item['name'] for item in channelbox_menuitems])
 
-    add_commands_to_menu(d_cbf_items, edit_menu, divider=True)
-    add_commands_to_menu(d_cbf_items, channel_box_popup, divider=True)
-    add_commands_to_menu(d_cbf_items, main_modify_menu, divider=True)
+    add_commands_to_menu(channelbox_menuitems, edit_menu)
+    add_commands_to_menu(channelbox_menuitems, channel_box_popup)
+    add_commands_to_menu(channelbox_menuitems, main_modify_menu)
 
 
 def remove_ui_item_menu(name_list):
@@ -69,20 +91,25 @@ def remove_ui_item_menu(name_list):
                 pm.deleteUI(item)
 
 
-def add_commands_to_menu(d_commands, menu, divider=False):
+def add_commands_to_menu(commands, menu):
     """
     It adds a new menu items to a menu.
-    :param d_commands: dictionary with the name, label and command of menu item.
+    :param commands: list of dictionaries with the name, label and command of menu item.
     :param menu: menu object where the items will be created.
-    :param divider: Boolean that indicates if a divider must be added before creating the menu items.
     """
-    if divider:
-        name = '{}_{}'.format(menu.split('|')[-1], 'jlr_divider')
-        pm.menuItem(name, parent=menu, divider=divider, dividerLabel='Sort Attributes')
 
-    for key, value in d_commands.iteritems():
-        name = '{}_{}'.format(menu.split('|')[-1], key)
-        pm.menuItem(name, parent=menu, **value)
+    for item in commands:
+        name = item['name']
+        label = item['label']
+        command = item['command']
+
+        if '_divider' in name:
+            name = '{}_{}'.format(menu.split('|')[-1], name)
+            pm.menuItem(name, parent=menu, divider=True, dividerLabel=label)
+
+        else:
+            name = '{}_{}'.format(menu.split('|')[-1], name)
+            pm.menuItem(name, parent=menu, label=label, command=command)
 
 
 #########################################
@@ -240,6 +267,7 @@ def make_shared_connection(attr_source, target_attr):
     attr_previous_connected = target_attr.inputs(p=1)[0]
 
     pb = pm.createNode('pairBlend')
+    pb.w.set(0.5)
     d_previous = {True: pb.inTranslate1, False: pb.inTranslateX1}
     d_source = {True: pb.inTranslate2, False: pb.inTranslateX2}
     d_out = {True: pb.outTranslate, False: pb.outTranslateX}
@@ -411,6 +439,74 @@ def move_down_attribute(*args):
                     return
 
     select_attributes(selected_attributes, selected_items)
+
+
+def copy_attribute(*args):
+    """
+    Saves the selected items and user defined attributes for copy to other item.
+    :param args: list of arguments
+    """
+    save_selected_attributes('copy')
+
+
+def cut_attribute(*args):
+    """
+    Saves the selected items and user defined attributes for move to other item.
+    :param args: list of arguments
+    """
+    save_selected_attributes('cut')
+
+
+def save_selected_attributes(mode):
+    """
+    Saves the selected items and user defined attributes for copy or move to other item.
+    :param mode: string. 'copy' to copy the attributes. Or 'cut' to move the attributes
+    """
+    global __jlr_copy_data
+    global __jlr_copy_mode
+
+    if not pm.selected():
+        pm.warning("Nothing selected.")
+        return
+
+    source_item = pm.selected()[-1]
+    all_selected_attr = get_selected_attributes()
+
+    if not all_selected_attr:
+        pm.warning("No attribute is selected.")
+        return
+
+    all_ud_attributes = get_all_user_attributes(source_item)
+    ud_selected_attr = [attr for attr in all_selected_attr if attr in all_ud_attributes]
+
+    if not ud_selected_attr:
+        pm.warning("No user defined attribute is selected.")
+        return
+
+    __jlr_copy_data = {'source_item': source_item, 'attributes': ud_selected_attr}
+    __jlr_copy_mode = mode
+
+
+def paste_attribute(*args):
+    """
+    Copies or Moves an attribute from one object to another object.
+    :param args:
+    :return:
+    """
+    global __jlr_copy_data
+    global __jlr_copy_mode
+
+    if not pm.selected():
+        pm.warning("Nothing selected.")
+        return
+
+    target_item = pm.selected()[-1]
+    source_item = __jlr_copy_data['source_item']
+    move_attr = __jlr_copy_mode == 'cut'
+    for attr in __jlr_copy_data['attributes']:
+        copy_attr(source_item, target_item, attr, move=move_attr)
+
+    pm.select(target_item)
 
 
 def get_all_user_attributes(node):
