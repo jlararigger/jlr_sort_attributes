@@ -11,7 +11,7 @@ import maya.mel as mel
 # Author: Juan Lara.
 ##################################################################################
 # Install:
-# 1- Copy in the scripts directory this script file.
+# 1- Copy this script file to your scripts directory.
 # 2- In the userSetup.py add the following lines:
 #
 # import maya.cmds as cmds

@@ -11,7 +11,7 @@ Creates two menu item commands in the Main Modify Menu, Channel Box Edit Menu an
 
 **Install:**
 
-1- Copy in the scripts directory this script file.
+1- Copy this script file to your scripts directory.
 
 2- In the userSetup.py add the following lines:
 
@@ -20,9 +20,16 @@ Creates two menu item commands in the Main Modify Menu, Channel Box Edit Menu an
     
     cmds.evalDeferred('jlr_sort_attributes.create_menu_commands()')
 
-**Usage:**
 
-Select one or more user defined attributes in the channel box.
+**How to use "Move Attributes Up" or "Move Attributes Down":**
 
-Click "Move Up Attr" for move the selected attributes one position up 
-or click "Move Down Attr" for move the selected attributes one position down.
+* Select one or more user-defined attributes in the channel box.
+* Click on "Move Attributes Up" to move the selected attributes one position up.
+* Or click on "Move Attributes down" to move the selected attributes one position down.
+
+**How to use Copy, Cut and Paste Attributes:**
+
+* First select an object and in the channel box, select one or more user-defined attributes.
+* Click on "Copy attributes" to copy the selected attributes.
+* Or click on 'Cut attributes' to move the selected attributes.
+*Finally select the object where you want to copy or move the previously selected attributes and click on "Paste attributes".
