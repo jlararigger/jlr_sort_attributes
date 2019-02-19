@@ -32,4 +32,4 @@ Creates two menu item commands in the Main Modify Menu, Channel Box Edit Menu an
 * First select an object and in the channel box, select one or more user-defined attributes.
 * Click on "Copy attributes" to copy the selected attributes.
 * Or click on 'Cut attributes' to move the selected attributes.
-*Finally select the object where you want to copy or move the previously selected attributes and click on "Paste attributes".
+* Finally select the object where you want to copy or move the previously selected attributes and click on "Paste attributes".
