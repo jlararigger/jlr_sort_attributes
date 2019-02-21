@@ -54,16 +54,23 @@ def create_menu_commands():
     Move Up: Move the selected attributes one position up.
     Move Down: Move the selected attributes one position down.
     """
+    channels_menu = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|menu2'
     edit_menu = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|menu3'
     channel_box_popup = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|frameLayout1|mainChannelBox|popupMenu1'
     main_modify_menu = 'MayaWindow|mainModifyMenu'
 
+    mel.eval('generateChannelMenu {} 0;'.format(channels_menu))
     mel.eval('generateCBEditMenu {} 0;'.format(edit_menu))
     mel.eval('generateChannelMenu {} 1;'.format(channel_box_popup))
     mel.eval('ModObjectsMenu {};'.format(main_modify_menu))
 
-    channelbox_menuitems = [
-        {'name': 'jlr_options_menuDivider', 'label': 'Sort Attributes', 'command': None},
+    channels_menuitems = [
+        {'name': 'jlr_channels_menuDivider', 'label': '', 'command': None},
+        {'name': 'jlr_unlock_trs', 'label': 'Unlock Transformations', 'command': unlock_trs_attributes},
+    ]
+
+    edit_menuitems = [
+        {'name': 'jlr_options_menuDivider', 'label': '', 'command': None},
         {'name': 'jlr_add_divider', 'label': 'Add Divider', 'command': add_divider_attribute},
         {'name': 'jlr_sort_menuDivider', 'label': 'Sort Attributes', 'command': None},
         {'name': 'jlr_cbf_attrMoveUp', 'label': 'Move Attributes Up', 'command': move_up_attribute},
@@ -75,11 +82,13 @@ def create_menu_commands():
     ]
 
     remove_ui_item_menu(['jlr_divider'])
-    remove_ui_item_menu([item['name'] for item in channelbox_menuitems])
+    remove_ui_item_menu([item['name'] for item in edit_menuitems])
 
-    add_commands_to_menu(channelbox_menuitems, edit_menu)
-    add_commands_to_menu(channelbox_menuitems, channel_box_popup)
-    add_commands_to_menu(channelbox_menuitems, main_modify_menu)
+    add_commands_to_menu(channels_menuitems, channels_menu)
+    add_commands_to_menu(edit_menuitems, edit_menu)
+    add_commands_to_menu(channels_menuitems, channel_box_popup)
+    add_commands_to_menu(edit_menuitems, channel_box_popup)
+    add_commands_to_menu(edit_menuitems, main_modify_menu)
 
 
 def remove_ui_item_menu(name_list):
@@ -543,5 +552,16 @@ def add_divider_attribute(*args):
     d_data['niceName'] = str(' ')
     d_data['hidden'] = False
     d_data['keyable'] = True
-    d_data['enumName'] = (str('-'*15))
+    d_data['enumName'] = (str('-' * 15))
     create_attr(item, d_data)
+
+
+def unlock_trs_attributes(*args):
+    """
+    Unlocks the translate, rotation and scale attributes.
+    :param args: list of arguments.
+    """
+    import itertools
+    for item in pm.selected():
+        for attr in itertools.product(['t', 'r', 's'], ['x', 'y', 'z']):
+            item.attr(''.join(attr)).unlock()
