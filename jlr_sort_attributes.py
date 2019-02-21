@@ -63,10 +63,12 @@ def create_menu_commands():
     mel.eval('ModObjectsMenu {};'.format(main_modify_menu))
 
     channelbox_menuitems = [
-        {'name': 'jlr_sort_divider', 'label': 'Sort Attributes', 'command': None},
+        {'name': 'jlr_options_menuDivider', 'label': 'Sort Attributes', 'command': None},
+        {'name': 'jlr_add_divider', 'label': 'Add Divider', 'command': add_divider_attribute},
+        {'name': 'jlr_sort_menuDivider', 'label': 'Sort Attributes', 'command': None},
         {'name': 'jlr_cbf_attrMoveUp', 'label': 'Move Attributes Up', 'command': move_up_attribute},
         {'name': 'jlr_cbf_attrMoveDown', 'label': 'Move Attributes Down', 'command': move_down_attribute},
-        {'name': 'jlr_edit_divider', 'label': '', 'command': None},
+        {'name': 'jlr_edit_menuDivider', 'label': '', 'command': None},
         {'name': 'jlr_cbf_attrCut', 'label': 'Cut Attributes', 'command': cut_attribute},
         {'name': 'jlr_cbf_attrCopy', 'label': 'Copy Attributes', 'command': copy_attribute},
         {'name': 'jlr_cbf_attrPaste', 'label': 'Paste Attributes', 'command': paste_attribute},
@@ -103,7 +105,7 @@ def add_commands_to_menu(commands, menu):
         label = item['label']
         command = item['command']
 
-        if '_divider' in name:
+        if '_menuDivider' in name:
             name = '{}_{}'.format(menu.split('|')[-1], name)
             pm.menuItem(name, parent=menu, divider=True, dividerLabel=label)
 
@@ -289,6 +291,19 @@ def get_selected_attributes():
         return []
 
     return attrs
+
+
+def get_all_user_attributes(node):
+    """
+    It gets all user defined attributes of a node.
+    :param node: dagNode.
+    :return: list with all user defined attributes.
+    """
+    all_attributes = list()
+    for attr in pm.listAttr(node, ud=True):
+        if not node.attr(attr).parent():
+            all_attributes.append(attr)
+    return all_attributes
 
 
 def get_attr_info(attribute):
@@ -490,8 +505,7 @@ def save_selected_attributes(mode):
 def paste_attribute(*args):
     """
     Copies or Moves an attribute from one object to another object.
-    :param args:
-    :return:
+    :param args: list of arguments
     """
     global __jlr_copy_data
     global __jlr_copy_mode
@@ -509,14 +523,28 @@ def paste_attribute(*args):
     pm.select(target_item)
 
 
-def get_all_user_attributes(node):
+def add_divider_attribute(*args):
     """
-    It gets all user defined attributes of a node.
-    :param node: dagNode.
-    :return: list with all user defined attributes.
+    Adds a divider attribute in the ChannelBox of last selected item.
+    :param args: list of arguments
     """
-    all_attributes = list()
-    for attr in pm.listAttr(node, ud=True):
-        if not node.attr(attr).parent():
-            all_attributes.append(attr)
-    return all_attributes
+    item = pm.selected()[-1]
+    name = 'divider'
+    cont = 0
+    fullname = name + str(cont).zfill(2)
+
+    while fullname in [attr.attrName() for attr in item.listAttr(ud=True)]:
+        cont += 1
+        fullname = name + str(cont).zfill(2)
+
+    d_data = dict()
+    d_data['longName'] = str(fullname)
+    d_data['type'] = 'enum'
+    d_data['niceName'] = str(' ')
+    d_data['hidden'] = False
+    d_data['keyable'] = True
+    d_data['enumName'] = (str('-'*14))
+    pm.addAttr(item, **d_data)
+
+if __name__ == '__main__':
+    create_menu_commands()
