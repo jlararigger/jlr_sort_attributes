@@ -543,8 +543,5 @@ def add_divider_attribute(*args):
     d_data['niceName'] = str(' ')
     d_data['hidden'] = False
     d_data['keyable'] = True
-    d_data['enumName'] = (str('-'*14))
-    pm.addAttr(item, **d_data)
-
-if __name__ == '__main__':
-    create_menu_commands()
+    d_data['enumName'] = (str('-'*15))
+    create_attr(item, d_data)
