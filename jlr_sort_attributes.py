@@ -81,7 +81,7 @@ def create_menu_commands():
         {'name': 'jlr_cbf_attrPaste', 'label': 'Paste Attributes', 'command': paste_attribute},
     ]
 
-    remove_ui_item_menu(['jlr_divider'])
+    remove_ui_item_menu(['jlr_divider', 'jlr_channels_menuDivider', 'jlr_unlock_trs'])
     remove_ui_item_menu([item['name'] for item in edit_menuitems])
 
     add_commands_to_menu(channels_menuitems, channels_menu)
@@ -158,6 +158,8 @@ def copy_attr(node_source, node_target, attr_name, move=False):
 
     source_value = source_attr.get()
     source_is_locked = source_attr.isLocked()
+    source_is_keyable = source_attr.get(k=1)
+    source_is_displayable = source_attr.get(cb=1)
     source_is_compound = source_attr.isCompound()
     source_connections = get_attr_connections(source_attr)
 
@@ -210,6 +212,11 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     else:
         new_attr.unlock()
 
+    # Copy the keyable status
+    if not source_is_keyable:
+        new_attr.set(cb=source_is_displayable)
+    new_attr.set(k=source_is_keyable)
+
     # Connect the attributes
     connect_attr(new_attr, **source_connections)
 
@@ -243,6 +250,9 @@ def create_attr(node, attr_data):
     else:
         # Creating the attribute
         pm.addAttr(node, **attr_data)
+        attr = node.attr(attr_name)
+        if not attr.get(k=1):
+            attr.set(cb=attr_data["hidden"])
 
 
 def connect_attr(attribute, inputs=None, outputs=None):
@@ -329,7 +339,7 @@ def get_attr_info(attribute):
     d_data['niceName'] = str(pm.attributeName(attribute, nice=True))
     d_data['shortName'] = str(pm.attributeName(attribute, short=True))
     d_data['hidden'] = attribute.isHidden()
-    d_data['keyable'] = attribute.isKeyable()
+    d_data['keyable'] = attribute.get(k=1)
 
     if attribute_type in ['string']:
         d_data['dataType'] = attribute_type
