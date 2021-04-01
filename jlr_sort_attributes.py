@@ -348,9 +348,9 @@ def get_attr_info(attribute):
 
     if attribute_type in ['long', 'double', 'bool']:
         d_data['defaultValue'] = attribute.get(default=True)
-        if attribute.getMax():
+        if attribute.getMax() is not None:
             d_data['maxValue'] = attribute.getMax()
-        if attribute.getMin():
+        if attribute.getMin() is not None:
             d_data['minValue'] = attribute.getMin()
 
     if attribute_type in ['enum']:
@@ -575,3 +575,7 @@ def unlock_trs_attributes(*args):
     for item in pm.selected():
         for attr in itertools.product(['t', 'r', 's'], ['x', 'y', 'z']):
             item.attr(''.join(attr)).unlock()
+
+
+if __name__  == "__main__":
+    move_up_attribute()
