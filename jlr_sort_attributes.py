@@ -1,3 +1,6 @@
+from __future__ import print_function
+
+import sys
 import pymel.core as pm
 import maya.mel as mel
 
@@ -57,6 +60,8 @@ def create_menu_commands():
     channels_menu = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|menu2'
     edit_menu = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|menu3'
     channel_box_popup = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|frameLayout1|mainChannelBox|popupMenu1'
+    if pm.about(version=1) == "2022":
+        channel_box_popup = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|frameLayout1|CBStackLayout|mainChannelBox|popupMenu1'
     main_modify_menu = 'MayaWindow|mainModifyMenu'
 
     mel.eval('generateChannelMenu {} 0;'.format(channels_menu))
@@ -126,6 +131,12 @@ def add_commands_to_menu(commands, menu):
 #########################################
 # Attribute methods
 #########################################
+def check_string(in_string):
+    if sys.version_info.major == 2:
+        return isinstance(in_string, basestring)
+    else:
+        return isinstance(in_string, str)
+
 
 def copy_attr(node_source, node_target, attr_name, move=False):
     """
@@ -140,10 +151,10 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     :param move: Boolean. Indicate if the attribute must be copied or moved.
     :return: Attribute. The new attribute.
     """
-    if isinstance(node_source, basestring):
+    if check_string(node_source):
         node_source = pm.PyNode(node_source)
 
-    if isinstance(node_target, basestring):
+    if check_string(node_target):
         node_target = pm.PyNode(node_target)
 
     if not node_source.hasAttr(attr_name):
@@ -391,7 +402,7 @@ def move_up_attribute(*args):
     selected_attributes = get_selected_attributes()
 
     if not len(pm.ls(sl=1)) or not selected_attributes:
-        print 'Nothing Selected'
+        print('Nothing Selected')
         return
 
     selected_items = pm.selected()
@@ -438,7 +449,7 @@ def move_down_attribute(*args):
     selected_attributes = get_selected_attributes()
 
     if not len(pm.ls(sl=1)) or not selected_attributes:
-        print 'Nothing Selected'
+        print('Nothing Selected')
         return
 
     selected_items = pm.selected()
@@ -577,5 +588,5 @@ def unlock_trs_attributes(*args):
             item.attr(''.join(attr)).unlock()
 
 
-if __name__  == "__main__":
-    move_up_attribute()
+if __name__ == "__main__":
+    create_menu_commands()
