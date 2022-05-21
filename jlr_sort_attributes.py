@@ -220,7 +220,7 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     if source_type_flag:
         # if we have a non numeric source lets set the node with that
         if source_type_flag == 'string' and not source_value:
-            # if the string source it will be None, use an empty string instead
+            # if the string source is  None(blank string), use an empty string instead
             source_value = ""
 
         new_attr.set(source_value, type=source_type_flag)
