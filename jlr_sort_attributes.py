@@ -173,6 +173,7 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     source_is_displayable = source_attr.get(cb=1)
     source_is_compound = source_attr.isCompound()
     source_connections = get_attr_connections(source_attr)
+    source_type_flag = attr_data.get('dataType')
 
     # If attribute is a Compound, read the children attributes info.
     source_child_info = dict()
@@ -215,7 +216,16 @@ def copy_attr(node_source, node_target, attr_name, move=False):
     new_attr = node_target.attr(attr_name)
 
     # Copy the value
-    new_attr.set(source_value)
+
+    if source_type_flag:
+        # if we have a non numeric source lets set the node with that
+        if source_type_flag == 'string' and not source_value:
+            # if the string source it will be None, use an empty string instead
+            source_value = ""
+
+        new_attr.set(source_value, type=source_type_flag)
+    else:
+        new_attr.set(source_value)
 
     # Copy the lock status
     if source_is_locked:
