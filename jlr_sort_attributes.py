@@ -71,6 +71,7 @@ def create_menu_commands():
 
     channels_menuitems = [
         {'name': 'jlr_channels_menuDivider', 'label': '', 'command': None},
+        {'name': 'jlr_lock_trs', 'label': 'Lock Transformations', 'command': lock_trs_attributes},
         {'name': 'jlr_unlock_trs', 'label': 'Unlock Transformations', 'command': unlock_trs_attributes},
     ]
 
@@ -585,6 +586,17 @@ def add_divider_attribute(*args):
     d_data['keyable'] = True
     d_data['enumName'] = (str('-' * 15))
     create_attr(item, d_data)
+
+
+def lock_trs_attributes(*args):
+    """
+    Locks the translate, rotation and scale attributes.
+    :param args: list of arguments.
+    """
+    import itertools
+    for item in pm.selected():
+        for attr in itertools.product(['t', 'r', 's'], ['x', 'y', 'z']):
+            item.attr(''.join(attr)).lock()
 
 
 def unlock_trs_attributes(*args):
