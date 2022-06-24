@@ -367,7 +367,7 @@ def get_attr_info(attribute):
     else:
         d_data['attributeType'] = attribute_type
 
-    if attribute_type in ['long', 'double', 'bool']:
+    if attribute_type in ['long', 'double', 'bool', 'short']:
         d_data['defaultValue'] = attribute.get(default=True)
         if attribute.getMax() is not None:
             d_data['maxValue'] = attribute.getMax()
