@@ -60,8 +60,9 @@ def create_menu_commands():
     channels_menu = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|menu2'
     edit_menu = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|menu3'
     channel_box_popup = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|frameLayout1|mainChannelBox|popupMenu1'
-    if pm.about(version=1) == "2022":
+    if pm.about(version=1) >= "2022":
         channel_box_popup = 'ChannelBoxLayerEditor|MainChannelsLayersLayout|ChannelsLayersPaneLayout|ChannelBoxForm|menuBarLayout1|frameLayout1|CBStackLayout|mainChannelBox|popupMenu1'
+
     main_modify_menu = 'MayaWindow|mainModifyMenu'
 
     mel.eval('generateChannelMenu {} 0;'.format(channels_menu))
